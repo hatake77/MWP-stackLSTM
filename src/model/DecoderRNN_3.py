@@ -181,7 +181,7 @@ class DecoderRNN_3(BaseRNN):
         return decoder_outputs_list, decoder_hidden, sequence_symbols_list
 
     def forward_normal_teacher(self, decoder_inputs, decoder_init_hidden, encoder_outputs, buffer, function):
-        decoder_outputs_all = None
+        decoder_outputs_list = []
         sequence_symbols_list = []
         #attn_list = []
         decoder_hidden = decoder_init_hidden
@@ -200,10 +200,7 @@ class DecoderRNN_3(BaseRNN):
                 symbols = self.decode(di, step_output)
             else:
                 symbols = self.decode_rule(di, sequence_symbols_list, step_output)
-            if di == 0:
-                decoder_outputs_all = step_output
-            else:
-                decoder_outputs_all = torch.cat((decoder_outputs_all,step_output),0)
+            decoder_outputs_list.append(step_output)
             sequence_symbols_list.append(symbols)
             symbols_str = self.class_list[symbols]
             print(symbols_str)
@@ -227,7 +224,7 @@ class DecoderRNN_3(BaseRNN):
                 else:
                     buffer['UNK_token'] = buffer['UNK_token'] + 1
 
-        return decoder_outputs_all, decoder_hidden, sequence_symbols_list#, attn_list
+        return decoder_outputs_list, decoder_hidden, sequence_symbols_list#, attn_list
 
     def symbol_norm(self, symbols):
         symbols = symbols.view(-1).data.cpu().numpy() 
@@ -256,7 +253,7 @@ class DecoderRNN_3(BaseRNN):
         decoder_input: batch x 1
         decoder_output: batch x 1 x classes,  probility_log
         '''
-        decoder_outputs_all = None
+        decoder_outputs_list = []
         sequence_symbols_list = []
         #attn_list = []
         decoder_hidden = decoder_init_hidden
@@ -273,10 +270,7 @@ class DecoderRNN_3(BaseRNN):
             else:
                 symbols = self.decode_rule(di, sequence_symbols_list, step_output) 
             decoder_input = self.symbol_norm(symbols)
-            if di == 0:
-                decoder_outputs_all = step_output
-            else:
-                decoder_outputs_all = torch.cat((decoder_outputs_all,step_output),0)
+            decoder_outputs_list.append(step_output)
             sequence_symbols_list.append(symbols)
             symbols_str = self.class_list[symbols]
             if symbols_str.split('-')[0] == 'reduce':
@@ -295,7 +289,7 @@ class DecoderRNN_3(BaseRNN):
             else:
                 stack.push(self.embedding(symbols).squeeze(0), self.embedding(symbols).squeeze(0))
         #print sequence_symbols_list
-        return decoder_outputs_all, decoder_hidden, sequence_symbols_list#, attn_list
+        return decoder_outputs_list, decoder_hidden, sequence_symbols_list#, attn_list
 
 
     def forward(self, inputs=None, encoder_hidden=None, encoder_outputs=None, buffer = None, template_flag=True,\
@@ -331,7 +325,6 @@ class DecoderRNN_3(BaseRNN):
             max_length = 40
         else:
             max_length = inputs.size(1)
-
         #inputs = torch.cat((pad_var, inputs), 1) # careful concate  batch x (seq_len+1)
         #inputs = inputs[:, :-1] # batch x seq_len
         if use_teacher_forcing:
@@ -339,32 +332,50 @@ class DecoderRNN_3(BaseRNN):
             inputs = torch.cat((pad_var, inputs), 1) # careful concate  batch x (seq_len+1)
             inputs = inputs[:, :-1] # batch x seq_len
             decoder_inputs = inputs
-            for i in range(decoder_inputs.size(0)):
+            for i in range(batch_size):
                 encoder_outputs_list, decoder_hidden, sequence_symbols_list = self.forward_normal_teacher(\
                     decoder_inputs[i].unsqueeze(0),(decoder_init_hidden[0][:,i,:].unsqueeze(1).contiguous(),decoder_init_hidden[1][:,i,:].unsqueeze(1).contiguous()), encoder_outputs[i].unsqueeze(0), buffer[i], function)
                 all_encoder_outputs.append(encoder_outputs_list)
                 all_decoder_hidden.append(decoder_hidden[0])
                 all_decoder_cell.append(decoder_hidden[1])
                 all_sequence_symbols_list.append(sequence_symbols_list)
-            encoder_outputs_list = torch.cat(all_encoder_outputs, 0)
             all_decoder_hidden = torch.cat(all_decoder_hidden, 0)
             all_decoder_cell = torch.cat(all_decoder_cell,0)
-            return encoder_outputs_list, (all_decoder_hidden,all_decoder_cell), all_sequence_symbols_list
+            outputs_list = []
+            symbols_list = []
+            for di in range(max_length):
+                tmp_outputs = all_encoder_outputs[0][di]
+                tmp_symbols = all_sequence_symbols_list[0][di]
+                for bi in range(batch_size - 1):
+                    tmp_outputs = torch.cat((tmp_outputs, all_encoder_outputs[bi + 1][di]), 0)
+                    tmp_symbols = torch.cat((tmp_symbols, all_sequence_symbols_list[bi + 1][di]), 0)
+                outputs_list.append(tmp_outputs)
+                symbols_list.append(tmp_symbols)
+            return outputs_list, (all_decoder_hidden,all_decoder_cell), symbols_list
 
         else:
             #decoder_input = inputs[:,0].unsqueeze(1) # batch x 1
             decoder_inputs = pad_var#.unsqueeze(1) # batch x 1
             #pdb.set_trace()
-            for i in range(decoder_inputs.size(0)):
+            for i in range(batch_size):
                 encoder_outputs_list, decoder_hidden, sequence_symbols_list = self.forward_normal_no_teacher(\
                     decoder_inputs[i].unsqueeze(0),(decoder_init_hidden[0][:,i,:].unsqueeze(1).contiguous(),decoder_init_hidden[1][:,i,:].unsqueeze(1).contiguous()), encoder_outputs[i].unsqueeze(0), buffer[i], max_length, function)
                 all_encoder_outputs.append(encoder_outputs_list)
                 all_decoder_hidden.append(decoder_hidden)
                 all_sequence_symbols_list.append(sequence_symbols_list)
-            encoder_outputs_list = torch.cat(all_encoder_outputs, 0)
             all_decoder_hidden = torch.cat(all_decoder_hidden, 0)
             all_decoder_cell = torch.cat(all_decoder_cell,0)
-            return encoder_outputs_list,(all_decoder_hidden,all_decoder_cell), all_sequence_symbols_list
+            outputs_list = []
+            symbols_list = []
+            for di in range(max_length):
+                tmp_outputs = all_encoder_outputs[0][di]
+                tmp_symbols = all_sequence_symbols_list[0][di]
+                for bi in range(batch_size-1):
+                    tmp_outputs = torch.cat((tmp_outputs, all_encoder_outputs[bi+1][di]), 0)
+                    tmp_symbols = torch.cat((tmp_symbols, all_sequence_symbols_list[bi+1][di]), 0)
+                outputs_list.append(tmp_outputs)
+                symbols_list.append(tmp_symbols)
+            return outputs_list,(all_decoder_hidden,all_decoder_cell), symbols_list
 
 
     def rule(self, symbol):

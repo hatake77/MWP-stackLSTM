@@ -98,8 +98,10 @@ class DataLoader():
         for equ_e in decode_list:
             if 'temp' in equ_e:
                 item = 'shift-' + equ_e.split('_')[1]
-            else:
+            elif equ_e != '1' and equ_e != 'PI':
                 item = 'reduce-' + equ_e
+            else:
+                item = equ_e
             covert_list.append(item)
         return covert_list
         
