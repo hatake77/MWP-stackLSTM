@@ -15,7 +15,7 @@ class StackRNN(object):
     def __init__(self, cell, initial_state, dropout, get_output, p_empty_embedding=None):
         self.cell = cell
         self.dropout = dropout
-        self.s = [(initial_state, None)]
+        self.s = [(initial_state, initial_state)]
         self.empty = initial_state
         self.get_output = get_output
         if p_empty_embedding is not None:
@@ -25,9 +25,12 @@ class StackRNN(object):
         #print(self.s[-1][0].size())
         #self.dropout(self.s[-1][0])
         self.s.append((self.cell(expr, self.s[-1][0]), extra))
+        print('stackLen' + str(len(self.s)))
 
     def pop(self):
+        print('stackLen' + str(len(self.s)-1))
         return self.s.pop()[1]
+
 
     def embedding(self):
         return self.get_output(self.s[-1][0]) if len(self.s) > 1 else self.empty
@@ -207,17 +210,17 @@ class DecoderRNN_3(BaseRNN):
             if symbols_str.startswith('reduce'):
                 op1 = stack.pop()
                 op2 = stack.pop()
-                if symbols_str.split('-')[1] == '+':
+                if symbols_str.split('_')[1] == '+':
                     stack.push(self.add(torch.cat((op1,op2),1)), self.add(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '-':
+                elif symbols_str.split('_')[1] == '-':
                     stack.push(self.minus(torch.cat((op1,op2),1)), self.minus(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '*':
+                elif symbols_str.split('_')[1] == '*':
                     stack.push(self.multiply(torch.cat((op1,op2),1)), self.multiply(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '/':
+                elif symbols_str.split('_')[1] == '/':
                     stack.push(self.divide(torch.cat((op1,op2),1)), self.divide(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '^':
+                elif symbols_str.split('_')[1] == '^':
                     stack.push(self.power(torch.cat((op1,op2),1)), self.power(torch.cat((op1,op2),1)))
-            else:
+            elif symbols_str != 'END_token':
                 stack.push(self.embedding(symbols).squeeze(0), self.embedding(symbols).squeeze(0))
                 if symbols_str in buffer.keys():
                     buffer[symbols_str] = buffer[symbols_str] + 1
@@ -269,24 +272,25 @@ class DecoderRNN_3(BaseRNN):
                 symbols = self.decode(di, step_output)
             else:
                 symbols = self.decode_rule(di, sequence_symbols_list, step_output) 
-            decoder_input = self.symbol_norm(symbols)
+            decoder_input = symbols
             decoder_outputs_list.append(step_output)
             sequence_symbols_list.append(symbols)
             symbols_str = self.class_list[symbols]
-            if symbols_str.split('-')[0] == 'reduce':
+            print(symbols_str)
+            if symbols_str.split('_')[0] == 'reduce':
                 op1 = stack.pop()
                 op2 = stack.pop()
-                if symbols_str.split('-')[1] == '+':
+                if symbols_str.split('_')[1] == '+':
                     stack.push(self.add(torch.cat((op1,op2),1)), self.add(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '-':
+                elif symbols_str.split('_')[1] == '-':
                     stack.push(self.minus(torch.cat((op1,op2),1)), self.minus(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '*':
+                elif symbols_str.split('_')[1] == '*':
                     stack.push(self.multiply(torch.cat((op1,op2),1)), self.multiply(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '/':
+                elif symbols_str.split('_')[1] == '/':
                     stack.push(self.divide(torch.cat((op1,op2),1)), self.divide(torch.cat((op1,op2),1)))
-                elif symbols_str.split('-')[1] == '^':
+                elif symbols_str.split('_')[1] == '^':
                     stack.push(self.power(torch.cat((op1,op2),1)), self.power(torch.cat((op1,op2),1)))
-            else:
+            elif symbols_str != 'END_token':
                 stack.push(self.embedding(symbols).squeeze(0), self.embedding(symbols).squeeze(0))
         #print sequence_symbols_list
         return decoder_outputs_list, decoder_hidden, sequence_symbols_list#, attn_list
@@ -361,10 +365,11 @@ class DecoderRNN_3(BaseRNN):
                 encoder_outputs_list, decoder_hidden, sequence_symbols_list = self.forward_normal_no_teacher(\
                     decoder_inputs[i].unsqueeze(0),(decoder_init_hidden[0][:,i,:].unsqueeze(1).contiguous(),decoder_init_hidden[1][:,i,:].unsqueeze(1).contiguous()), encoder_outputs[i].unsqueeze(0), buffer[i], max_length, function)
                 all_encoder_outputs.append(encoder_outputs_list)
-                all_decoder_hidden.append(decoder_hidden)
+                all_decoder_hidden.append(decoder_hidden[0])
+                all_decoder_cell.append(decoder_hidden[1])
                 all_sequence_symbols_list.append(sequence_symbols_list)
             all_decoder_hidden = torch.cat(all_decoder_hidden, 0)
-            all_decoder_cell = torch.cat(all_decoder_cell,0)
+            all_decoder_cell = torch.cat(all_decoder_cell, 0)
             outputs_list = []
             symbols_list = []
             for di in range(max_length):
@@ -380,46 +385,46 @@ class DecoderRNN_3(BaseRNN):
 
     def rule(self, symbol):
         filters = []
-        if self.class_list[symbol].split('-')[1] in ['+', '-', '*', '/']:
-            filters.append(self.class_dict['reduce-+'])
-            filters.append(self.class_dict['reduce--'])
-            filters.append(self.class_dict['reduce-*'])
-            filters.append(self.class_dict['reduce-/'])
-            filters.append(self.class_dict['reduce-)'])
+        if self.class_list[symbol].split('_')[1] in ['+', '-', '*', '/']:
+            filters.append(self.class_dict['reduce_+'])
+            filters.append(self.class_dict['reduce_-'])
+            filters.append(self.class_dict['reduce_*'])
+            filters.append(self.class_dict['reduce_/'])
+            filters.append(self.class_dict['reduce_)'])
             filters.append(self.class_dict['='])
         elif self.class_list[symbol] == '=':
-            filters.append(self.class_dict['reduce-+'])
-            filters.append(self.class_dict['reduce--'])
-            filters.append(self.class_dict['reduce-*'])
-            filters.append(self.class_dict['reduce-/'])
+            filters.append(self.class_dict['reduce_+'])
+            filters.append(self.class_dict['reduce_-'])
+            filters.append(self.class_dict['reduce_*'])
+            filters.append(self.class_dict['reduce_/'])
             filters.append(self.class_dict['='])
-            filters.append(self.class_dict['reduce-)'])
-        elif self.class_list[symbol] == 'reduce-(':
-            filters.append(self.class_dict['reduce-('])
-            filters.append(self.class_dict['reduce-)'])
-            filters.append(self.class_dict['reduce-+'])
-            filters.append(self.class_dict['reduce--'])
-            filters.append(self.class_dict['reduce-*'])
-            filters.append(self.class_dict['reduce-/'])
+            filters.append(self.class_dict['reduce_)'])
+        elif self.class_list[symbol] == 'reduce_(':
+            filters.append(self.class_dict['reduce_('])
+            filters.append(self.class_dict['reduce_)'])
+            filters.append(self.class_dict['reduce_+'])
+            filters.append(self.class_dict['reduce_-'])
+            filters.append(self.class_dict['reduce_*'])
+            filters.append(self.class_dict['reduce_/'])
             filters.append(self.class_dict['=']) 
-        elif self.class_list[symbol] == 'reduce-)':
-            filters.append(self.class_dict['reduce-('])
-            filters.append(self.class_dict['reduce-)'])
+        elif self.class_list[symbol] == 'reduce_)':
+            filters.append(self.class_dict['reduce_('])
+            filters.append(self.class_dict['reduce_)'])
             for k,v in self.class_dict.items():
                 if 'temp' in k:
                     filters.append(v)
         elif 'temp' in self.class_list[symbol]:
-            filters.append(self.class_dict['reduce-('])
+            filters.append(self.class_dict['reduce_('])
             filters.append(self.class_dict['=']) 
         return np.array(filters)
 
     def filter_op(self):
         filters = []
-        filters.append(self.class_dict['reduce-+'])
-        filters.append(self.class_dict['reduce--'])
-        filters.append(self.class_dict['reduce-*'])
-        filters.append(self.class_dict['reduce-/'])
-        filters.append(self.class_dict['reduce-^'])
+        filters.append(self.class_dict['reduce_+'])
+        filters.append(self.class_dict['reduce_-'])
+        filters.append(self.class_dict['reduce_*'])
+        filters.append(self.class_dict['reduce_/'])
+        filters.append(self.class_dict['reduce_^'])
         return np.array(filters)
 
     def filter_END(self):
@@ -452,14 +457,15 @@ class DecoderRNN_3(BaseRNN):
             num_op = 0
             for j in range(len(sequence_symbols_list)):
                 symbol = sequence_symbols_list[j].cpu().data[0]
-                if '-' in self.class_list[symbol] and self.class_list[symbol].split('-')[1] in op_list:
+                if '_' in self.class_list[symbol] and self.class_list[symbol].split('_')[1] in op_list:
                     num_op += 1
-                elif 'temp' in self.class_list[symbol] or self.class_list[symbol] in ['1', 'PI']:
+                elif 'shift' in self.class_list[symbol] or self.class_list[symbol] in ['1', 'PI']:
                     num_var += 1
+            print('op: '+ str(num_op)+ '   num:'+ str(num_var))
             if num_var >= num_op + 2:
                 filters = self.filter_END()
                 cur_out[0][filters] = -float('inf')
-            elif num_var == num_op + 1:
+            if num_var <= num_op + 1:
                 filters = self.filter_op()
                 cur_out[0][filters] = -float('inf')
             cur_symbols.append(np.argmax(cur_out))

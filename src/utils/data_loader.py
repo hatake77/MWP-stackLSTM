@@ -36,12 +36,16 @@ class DataLoader():
                 equation = elem['target_norm_post_template'][2:]#.strip().split(' ')
             for equ_e in equation:
                 if 'temp' in equ_e:
-                    item = 'shift-'+equ_e.split('_')[1]
+                    item = 'shift_'+equ_e.split('_')[1]
                 elif equ_e not in ['PI','1']:
-                    item = 'reduce-'+equ_e
+                    item = 'reduce_'+equ_e
                 else:
                     item = equ_e
                 if item not in equ_dict:
+                    equ_dict[item] = 1
+            for equ_e in sentence:
+                if 'temp' in equ_e:
+                    item = 'shift_'+equ_e.split('_')[1]
                     equ_dict[item] = 1
             sentences.append(sentence)
             for elem in sentence:
@@ -97,9 +101,9 @@ class DataLoader():
         covert_list = []
         for equ_e in decode_list:
             if 'temp' in equ_e:
-                item = 'shift-' + equ_e.split('_')[1]
+                item = 'shift_' + equ_e.split('_')[1]
             elif equ_e != '1' and equ_e != 'PI':
-                item = 'reduce-' + equ_e
+                item = 'reduce_' + equ_e
             else:
                 item = equ_e
             covert_list.append(item)
@@ -122,7 +126,7 @@ class DataLoader():
             encode_sen = elem['text']
             for word in elem['text'].split():
                 if 'temp' in word:
-                    key = 'shift-'+word.split('_')[1]
+                    key = 'shift_'+word.split('_')[1]
                     buffer[key] = 0
             buffer['1'] = 0
             buffer['PI'] = 0
