@@ -25,10 +25,10 @@ class StackRNN(object):
         #print(self.s[-1][0].size())
         #self.dropout(self.s[-1][0])
         self.s.append((self.cell(expr, self.s[-1][0]), extra))
-        print('stackLen' + str(len(self.s)))
+        #print('stackLen' + str(len(self.s)))
 
     def pop(self):
-        print('stackLen' + str(len(self.s)-1))
+        #print('stackLen' + str(len(self.s)-1))
         return self.s.pop()[1]
 
 
@@ -312,7 +312,10 @@ class DecoderRNN_3(BaseRNN):
         all_decoder_hidden = []
         all_decoder_cell = []
         all_sequence_symbols_list = []
-
+        print('inputs: '+str(len(inputs)))
+        print(' hidden:' + str(len(encoder_hidden)))
+        print(' outputs:' + str(len(encoder_outputs)))
+        print('buffer:'+ str(len(buffer)))
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
         #pdb.set_trace()
         batch_size = encoder_outputs.size(0)
@@ -461,7 +464,6 @@ class DecoderRNN_3(BaseRNN):
                     num_op += 1
                 elif 'shift' in self.class_list[symbol] or self.class_list[symbol] in ['1', 'PI']:
                     num_var += 1
-            print('op: '+ str(num_op)+ '   num:'+ str(num_var))
             if num_var >= num_op + 2:
                 filters = self.filter_END()
                 cur_out[0][filters] = -float('inf')

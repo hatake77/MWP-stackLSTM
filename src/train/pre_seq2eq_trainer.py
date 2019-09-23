@@ -190,16 +190,15 @@ class SupervisedTrainer(object):
                 if self.cuda_use:
                     input_variables = input_variables.cuda()
                     target_variables = target_variables.cuda()
-
-                loss, com_list = self._train_batch(input_variables = input_variables, 
-                                                   input_lengths = input_lengths, 
-                                                   target_variables = target_variables, 
+                loss, com_list = self._train_batch(input_variables = input_variables,
+                                                   input_lengths = input_lengths,
+                                                   target_variables = target_variables,
                                                    target_lengths = target_lengths,
                                                    buffer = buffer,
-                                                   model = model, 
+                                                   model = model,
                                                    template_flag = template_flag,
                                                    teacher_forcing_ratio = teacher_forcing_ratio,
-                                                   mode = mode, 
+                                                   mode = mode,
                                                    batch_size = batch_size,
                                                    post_flag = post_flag)
 
@@ -229,6 +228,7 @@ class SupervisedTrainer(object):
                                         self.evaluator.evaluate(model = model,
                                                                 data_loader = data_loader,
                                                                 data_list = train_list,
+                                                                buffer = buffer,
                                                                 template_flag = True,
                                                                 batch_size = batch_size,
                                                                 evaluate_type = 0,
@@ -249,6 +249,7 @@ class SupervisedTrainer(object):
                                         self.evaluator.evaluate(model = model,
                                                                 data_loader = data_loader,
                                                                 data_list = test_list,
+                                                                buffer = buffer,
                                                                 template_flag = True,
                                                                 batch_size = batch_size,
                                                                 evaluate_type = 0,
