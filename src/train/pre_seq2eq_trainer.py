@@ -228,11 +228,10 @@ class SupervisedTrainer(object):
                                         self.evaluator.evaluate(model = model,
                                                                 data_loader = data_loader,
                                                                 data_list = train_list,
-                                                                buffer = buffer,
                                                                 template_flag = True,
                                                                 batch_size = batch_size,
                                                                 evaluate_type = 0,
-                                                                use_rule = False,
+                                                                use_rule = True,
                                                                 mode = mode,
                                                                 post_flag=post_flag)
             #valid_temp_acc, valid_ans_acc =\
@@ -249,11 +248,10 @@ class SupervisedTrainer(object):
                                         self.evaluator.evaluate(model = model,
                                                                 data_loader = data_loader,
                                                                 data_list = test_list,
-                                                                buffer = buffer,
                                                                 template_flag = True,
                                                                 batch_size = batch_size,
                                                                 evaluate_type = 0,
-                                                                use_rule = False,
+                                                                use_rule = True,
                                                                 mode = mode,
                                                                 post_flag=post_flag)
             self.train_acc_list.append((epoch, step, train_ans_acc))

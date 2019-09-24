@@ -145,7 +145,7 @@ class Evaluator(object):
             return ("compute error")
 
 
-    def evaluate(self, model, data_loader, data_list, buffer, template_flag, batch_size, \
+    def evaluate(self, model, data_loader, data_list, template_flag, batch_size, \
                       evaluate_type, use_rule, mode, post_flag=False, name_save='train'):
         batch_generator = data_loader.get_batch(data_list, batch_size, template_flag)
         total_num = len(data_list)
@@ -175,6 +175,7 @@ class Evaluator(object):
             batch_text = batch_data_dict['batch_text']
             batch_num_list = batch_data_dict['batch_num_list']
             batch_solution = batch_data_dict['batch_solution']
+            buffer = batch_data_dict['batch_buffer']
             batch_size = len(batch_index)
 
             if template_flag == True:

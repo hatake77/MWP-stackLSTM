@@ -365,12 +365,17 @@ class DecoderRNN_3(BaseRNN):
             decoder_inputs = pad_var#.unsqueeze(1) # batch x 1
             #pdb.set_trace()
             for i in range(batch_size):
-                encoder_outputs_list, decoder_hidden, sequence_symbols_list = self.forward_normal_no_teacher(\
-                    decoder_inputs[i].unsqueeze(0),(decoder_init_hidden[0][:,i,:].unsqueeze(1).contiguous(),decoder_init_hidden[1][:,i,:].unsqueeze(1).contiguous()), encoder_outputs[i].unsqueeze(0), buffer[i], max_length, function)
-                all_encoder_outputs.append(encoder_outputs_list)
-                all_decoder_hidden.append(decoder_hidden[0])
-                all_decoder_cell.append(decoder_hidden[1])
-                all_sequence_symbols_list.append(sequence_symbols_list)
+                try:
+                    encoder_outputs_list, decoder_hidden, sequence_symbols_list = self.forward_normal_no_teacher(\
+                        decoder_inputs[i].unsqueeze(0),(decoder_init_hidden[0][:,i,:].unsqueeze(1).contiguous(),decoder_init_hidden[1][:,i,:].unsqueeze(1).contiguous()), encoder_outputs[i].unsqueeze(0), buffer[i], max_length, function)
+                except IndexError:
+                    print('i:' + str(i) + 'inputs:' + str(len(decoder_inputs)))
+                    print('buffer:' + str(len(buffer)))
+                else:
+                    all_encoder_outputs.append(encoder_outputs_list)
+                    all_decoder_hidden.append(decoder_hidden[0])
+                    all_decoder_cell.append(decoder_hidden[1])
+                    all_sequence_symbols_list.append(sequence_symbols_list)
             all_decoder_hidden = torch.cat(all_decoder_hidden, 0)
             all_decoder_cell = torch.cat(all_decoder_cell, 0)
             outputs_list = []
@@ -378,7 +383,7 @@ class DecoderRNN_3(BaseRNN):
             for di in range(max_length):
                 tmp_outputs = all_encoder_outputs[0][di]
                 tmp_symbols = all_sequence_symbols_list[0][di]
-                for bi in range(batch_size-1):
+                for bi in range(len(all_encoder_outputs)-1):
                     tmp_outputs = torch.cat((tmp_outputs, all_encoder_outputs[bi+1][di]), 0)
                     tmp_symbols = torch.cat((tmp_symbols, all_sequence_symbols_list[bi+1][di]), 0)
                 outputs_list.append(tmp_outputs)
@@ -464,6 +469,7 @@ class DecoderRNN_3(BaseRNN):
                     num_op += 1
                 elif 'shift' in self.class_list[symbol] or self.class_list[symbol] in ['1', 'PI']:
                     num_var += 1
+            print('num: '+ str(num_var) +' op:'+str(num_op))
             if num_var >= num_op + 2:
                 filters = self.filter_END()
                 cur_out[0][filters] = -float('inf')

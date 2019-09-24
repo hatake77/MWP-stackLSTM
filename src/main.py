@@ -14,7 +14,7 @@ from utils import NLLLoss, Optimizer, Checkpoint, Evaluator
 
 args = get_args()
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 def step_one():
 
